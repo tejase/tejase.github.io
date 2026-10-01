@@ -111,23 +111,25 @@ a { color: inherit; }
 
 .hero { padding: 48px 0 20px; }
 
-.hero-intro { display: grid; gap: 8px; }
+.hero-intro { display: grid; gap: 8px; position: relative; }
 
 .portrait {
-  order: -1;
-  margin: 0 0 18px;
-  width: min(168px, 42vw);
+  position: absolute;
+  top: 14px;
+  right: 0;
+  margin: 0;
+  width: 84px;
 }
 
 .portrait img {
   display: block;
   width: 100%;
   height: auto;
-  aspect-ratio: 4 / 5;
+  aspect-ratio: 1;
   object-fit: cover;
-  object-position: center 12%;
-  border-radius: 18px;
+  border-radius: 50%;
   border: 1px solid var(--line);
+  box-shadow: 0 0 0 4px var(--paper);
 }
 
 .eyebrow {
@@ -567,11 +569,17 @@ h3 {
   }
   .hero-copy { grid-column: 1; }
   .portrait {
-    order: 0;
+    position: static;
     grid-column: 2;
     grid-row: 1;
     width: 100%;
     margin: 12px 0 0;
+  }
+  .portrait img {
+    aspect-ratio: 4 / 5;
+    object-position: center 12%;
+    border-radius: 18px;
+    box-shadow: none;
   }
 
   .gallery {
