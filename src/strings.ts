@@ -74,34 +74,62 @@ export function mountStrings(canvas: HTMLCanvasElement, bed: HTMLElement): () =>
     });
   }
 
-  function disturb(px: number, py: number, amount: number): void {
-    const rect = bed.getBoundingClientRect();
-    const width = rect.width;
-    strands.forEach((strand) => {
-      const dy = py - strand.rest;
-      if (Math.abs(dy) > 36) return;
-      const falloff = 1 - Math.abs(dy) / 36;
-      const index = Math.round((px / width) * (samples - 1));
-      for (let k = -4; k <= 4; k += 1) {
-        const j = index + k;
-        if (j <= 0 || j >= samples - 1) continue;
-        const local = 1 - Math.abs(k) / 5;
-        strand.v[j] += amount * falloff * local;
+  function nearestStrand(py: number): number {
+    let nearest = 0;
+    let best = Infinity;
+    strands.forEach((strand, i) => {
+      const distance = Math.abs(py - strand.rest);
+      if (distance < best) {
+        best = distance;
+        nearest = i;
       }
     });
+    return nearest;
+  }
+
+  function hoverBend(strand: Strand, i: number, width: number): number {
+    const x = (i / (samples - 1)) * width;
+    const dx = x - pointerX;
+    const spatial = Math.exp(-(dx * dx) / 14000);
+    const dy = pointerY - strand.rest;
+    const reach = 24;
+    if (Math.abs(dy) > reach) return 0;
+    const vertical = 1 - Math.abs(dy) / reach;
+    return Math.sign(dy) * vertical * spatial * 5;
+  }
+
+  function disturb(px: number, py: number, amount: number): void {
+    const width = bed.getBoundingClientRect().width;
+    const strand = strands[nearestStrand(py)];
+    if (!strand) return;
+    const index = Math.round((px / width) * (samples - 1));
+    for (let k = -3; k <= 3; k += 1) {
+      const j = index + k;
+      if (j <= 0 || j >= samples - 1) continue;
+      const local = 1 - Math.abs(k) / 4;
+      strand.v[j] += amount * local;
+    }
   }
 
   function step(): void {
     if (reduced) return;
-    strands.forEach((strand) => {
+    const width = bed.getBoundingClientRect().width;
+    const active = pointerX >= 0 ? nearestStrand(pointerY) : -1;
+    strands.forEach((strand, s) => {
       const { y, v } = strand;
       for (let i = 1; i < samples - 1; i += 1) {
-        const pull = ((y[i - 1] + y[i + 1]) / 2 - y[i]) * 0.42 - y[i] * 0.08;
-        v[i] = (v[i] + pull) * 0.9;
+        const target = s === active ? hoverBend(strand, i, width) : 0;
+        const wave = ((y[i - 1] + y[i + 1]) / 2 - y[i]) * 0.12;
+        const restore = (target - y[i]) * 0.28;
+        v[i] = (v[i] + wave + restore) * 0.62;
         y[i] += v[i];
+        if (y[i] > 8) y[i] = 8;
+        if (y[i] < -8) y[i] = -8;
       }
       y[0] = 0;
       y[samples - 1] = 0;
+      v[0] = 0;
+      v[samples - 1] = 0;
     });
   }
 
@@ -124,7 +152,6 @@ export function mountStrings(canvas: HTMLCanvasElement, bed: HTMLElement): () =>
 
   function loop(): void {
     if (!alive) return;
-    if (pointerX >= 0) disturb(pointerX, pointerY, 1.4);
     step();
     draw();
     frame = window.requestAnimationFrame(loop);
@@ -155,7 +182,7 @@ export function mountStrings(canvas: HTMLCanvasElement, bed: HTMLElement): () =>
         nearest = i;
       }
     });
-    disturb(event.clientX - rect.left, y, 18);
+    disturb(event.clientX - rect.left, y, 4);
     pluck(nearest);
     const link = bed.querySelectorAll<HTMLAnchorElement>(".string-labels a")[nearest];
     const href = link?.getAttribute("href");
